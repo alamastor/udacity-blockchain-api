@@ -114,14 +114,16 @@ class Blockchain {
     await this._init();
     const errorLog = [];
     const blockHeight = await this._getBlockHeight();
-    for (let i = 0; i < blockHeight - 2; i++) {
+    for (let i = 0; i < blockHeight; i++) {
       // validate block
       const valid = await this.validateBlock(i);
       if (valid) {
-        const block = await this.getBlock(i);
-        const nextBlock = await this.getBlock(i + 1);
-        if (block.hash !== nextBlock.previousBlockHash) {
-          errorLog.push(i);
+        if (i < blockHeight - 1) { // Don't validate next block hash for last block
+          const block = await this.getBlock(i);
+          const nextBlock = await this.getBlock(i + 1);
+          if (block.hash !== nextBlock.previousBlockHash) {
+            errorLog.push(i);
+          }
         }
       } else {
         errorLog.push(i)
