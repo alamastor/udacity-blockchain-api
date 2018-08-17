@@ -17,7 +17,7 @@ server.route({
     const blockHeight = parseInt(request.params.height, 10);
     const blockchain = new Blockchain();
     let response;
-    if (blockHeight > (await blockchain.getBlockHeight())) {
+    if (blockHeight >= (await blockchain.getBlockHeight())) {
       response = h.response();
       response.code(404);
     } else {
