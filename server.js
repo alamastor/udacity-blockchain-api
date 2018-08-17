@@ -9,7 +9,7 @@ const server = Hapi.server({
   port: 8000,
 });
 
-// Add the route
+// Get block route
 server.route({
   method: "GET",
   path: "/block/{height}",
@@ -24,6 +24,20 @@ server.route({
       const block = await blockchain.getBlock(blockHeight);
       response = h.response(JSON.stringify(block));
     }
+    response.type("application/json");
+    return response;
+  },
+});
+
+// Get block heihgt route
+server.route({
+  method: "GET",
+  path: "/blockheight",
+  handler: async function(request, h) {
+    const blockchain = new Blockchain();
+    const response = h.response(
+      JSON.stringify({ blockHeight: await blockchain.getBlockHeight() }),
+    );
     response.type("application/json");
     return response;
   },
