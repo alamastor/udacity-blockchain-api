@@ -29,7 +29,7 @@ server.route({
   },
 });
 
-// Get block heihgt route
+// Get block height route
 server.route({
   method: "GET",
   path: "/blockheight",
