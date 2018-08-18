@@ -14,6 +14,11 @@ const server = Hapi.server({
 server.route({
   method: "GET",
   path: "/block/{height}",
+  options: {
+    validate: {
+      params: { height: Joi.number().integer() },
+    },
+  },
   handler: async function(request, h) {
     const blockHeight = parseInt(request.params.height, 10);
     const blockchain = new Blockchain();
