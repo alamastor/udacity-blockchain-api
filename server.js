@@ -1,6 +1,7 @@
 "use strict";
 
 const Hapi = require("hapi");
+const Joi = require("joi");
 const { Block, Blockchain } = require("./simpleChain");
 
 // Create a server with a host and port
@@ -39,6 +40,27 @@ server.route({
       JSON.stringify({ blockHeight: await blockchain.getBlockHeight() }),
     );
     response.type("application/json");
+    return response;
+  },
+});
+
+// Post block route
+server.route({
+  method: "POST",
+  path: "/block",
+  options: {
+    payload: { allow: "application/json" },
+    validate: {
+      payload: Joi.object().keys({
+        body: Joi.alternatives().try(Joi.number(), Joi.string()),
+      }),
+    },
+  },
+  handler: async function(request, h) {
+    const blockchain = new Blockchain();
+    await blockchain.addBlock(new Block(request.payload.body));
+    const response = h.response();
+    response.code(201);
     return response;
   },
 });
