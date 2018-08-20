@@ -19,19 +19,16 @@ server.route({
       params: { height: Joi.number().integer() },
     },
   },
-  handler: async function(request, h) {
+  handler: async (request, h) => {
     const blockHeight = parseInt(request.params.height, 10);
     const blockchain = new Blockchain();
-    let response;
     if (blockHeight >= (await blockchain.getBlockHeight())) {
-      response = h.response();
+      const response = h.response();
       response.code(404);
+      return response;
     } else {
-      const block = await blockchain.getBlock(blockHeight);
-      response = h.response(JSON.stringify(block));
+      return await blockchain.getBlock(blockHeight);
     }
-    response.type("application/json");
-    return response;
   },
 });
 
@@ -39,14 +36,9 @@ server.route({
 server.route({
   method: "GET",
   path: "/blockheight",
-  handler: async function(request, h) {
-    const blockchain = new Blockchain();
-    const response = h.response(
-      JSON.stringify({ blockHeight: await blockchain.getBlockHeight() }),
-    );
-    response.type("application/json");
-    return response;
-  },
+  handler: async () => ({
+    blockHeight: await new Blockchain().getBlockHeight(),
+  }),
 });
 
 // Post block route
@@ -61,7 +53,7 @@ server.route({
       }),
     },
   },
-  handler: async function(request, h) {
+  handler: async request => {
     const blockchain = new Blockchain();
     await blockchain.addBlock(new Block(request.payload.body));
     return await blockchain.getBlock((await blockchain.getBlockHeight()) - 1);
