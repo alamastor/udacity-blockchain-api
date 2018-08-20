@@ -1,7 +1,7 @@
 # Blockchain JSON API
 
 Implemented with Hapi.js!
-`node app.js` to run on localhost:8000
+`npm start` to run on localhost:8000
 
 ## Endpoints
 
