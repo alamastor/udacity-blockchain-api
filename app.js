@@ -64,9 +64,7 @@ server.route({
   handler: async function(request, h) {
     const blockchain = new Blockchain();
     await blockchain.addBlock(new Block(request.payload.body));
-    const response = h.response();
-    response.code(201);
-    return response;
+    return await blockchain.getBlock((await blockchain.getBlockHeight()) - 1);
   },
 });
 
