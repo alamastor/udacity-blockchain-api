@@ -217,6 +217,21 @@ server.route({
   },
 });
 
+server.route({
+  method: "GET",
+  path: "/stars/{address}",
+  options: {
+    validate: {
+      params: {
+        address: Joi.string(),
+      },
+    },
+  },
+  handler: async request => {
+    return await new Blockchain().getBlocksByAddress(request.params.address);
+  },
+});
+
 // Start the server
 async function start() {
   try {
