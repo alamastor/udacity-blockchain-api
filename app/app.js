@@ -2,13 +2,17 @@
 
 const Hapi = require("hapi");
 const Joi = require("joi");
+const bitcoinMsg = require("bitcoinjs-message");
 const { Block, Blockchain } = require("./simpleChain");
 const validationRequestDb = require("level")("./validationrequestdata");
+
+const VALIDATION_WINDOW_SECONDS = 300;
 
 // Create a server with a host and port
 const server = Hapi.server({
   host: "localhost",
   port: 8000,
+  debug: { request: ["error"] },
 });
 
 // Get block route
@@ -61,7 +65,7 @@ server.route({
   },
 });
 
-// Post block route
+// Request validation endpoint
 server.route({
   method: "POST",
   path: "/requestValidation",
@@ -69,17 +73,16 @@ server.route({
     payload: { allow: "application/json" },
     validate: {
       payload: Joi.object().keys({
-        address: Joi.number(),
+        address: Joi.string().required(),
       }),
     },
   },
   handler: async request => {
     const address = request.payload.address;
-    const validationWindow = 30;
     let timeStamp;
     try {
-      timeStamp = await validationRequestDb.get(address);
-      if ((Date.now() - timeStamp) / 1000 > validationWindow) {
+      ({ timeStamp } = JSON.parse(await validationRequestDb.get(address)));
+      if ((Date.now() - timeStamp) / 1000 > VALIDATION_WINDOW_SECONDS) {
         timeStamp = Date.now();
       }
     } catch (err) {
@@ -90,16 +93,87 @@ server.route({
       }
     }
 
-    validationRequestDb.put(address, timeStamp);
+    validationRequestDb.put(
+      address,
+      JSON.stringify({ timeStamp, validated: false }),
+    );
 
     return {
       address: address,
       requestTimeStamp: timeStamp,
       message: `${address}:${timeStamp}:starRegistry`,
       validationWindow: Math.round(
-        validationWindow - (Date.now() - timeStamp) / 1000,
+        VALIDATION_WINDOW_SECONDS - (Date.now() - timeStamp) / 1000,
       ),
     };
+  },
+});
+
+// Validate signature endpoint
+server.route({
+  method: "POST",
+  path: "/message-signature/validate",
+  options: {
+    payload: { allow: "application/json" },
+    validate: {
+      payload: Joi.object().keys({
+        address: Joi.string().required(),
+        signature: Joi.string()
+          .length(88)
+          .required(),
+      }),
+    },
+  },
+  handler: async (request, h) => {
+    const { address, signature } = request.payload;
+    let timeStamp;
+    try {
+      ({ timeStamp } = JSON.parse(await validationRequestDb.get(address)));
+    } catch (err) {
+      if (err.notFound) {
+        const response = h.response();
+        response.code(404);
+        return response;
+      } else {
+        throw err;
+      }
+    }
+    const message = `${address}:${timeStamp}:starRegistry`;
+    let signatureValid;
+    try {
+      signatureValid = bitcoinMsg.verify(message, address, signature);
+    } catch (_) {
+      signatureValid = false;
+    }
+    if (signatureValid) {
+      validationRequestDb.put(
+        address,
+        JSON.stringify({ timeStamp, validated: true }),
+      );
+      return {
+        registerStar: true,
+        status: {
+          address,
+          requestTimeStamp: timeStamp,
+          message,
+          validationWindow: Math.round(
+            VALIDATION_WINDOW_SECONDS - (Date.now() - timeStamp) / 1000, //
+          ),
+        },
+      };
+    } else {
+      return {
+        registerStar: false,
+        status: {
+          address,
+          requestTimeStamp: timeStamp,
+          message,
+          validationWindow: Math.round(
+            VALIDATION_WINDOW_SECONDS - (Date.now() - timeStamp) / 1000, //
+          ),
+        },
+      };
+    }
   },
 });
 
