@@ -54,13 +54,53 @@ server.route({
     payload: { allow: "application/json" },
     validate: {
       payload: Joi.object().keys({
-        body: Joi.alternatives().try(Joi.number(), Joi.string()),
+        address: Joi.string().required(),
+        star: Joi.object()
+          .keys({
+            ra: Joi.string().required(),
+            dec: Joi.string().required(),
+            mag: Joi.string(),
+            constellation: Joi.string(),
+            story: Joi.string()
+              .max(500)
+              .required(),
+          })
+          .required(),
       }),
     },
   },
-  handler: async request => {
+  handler: async (request, h) => {
+    const { address, star } = request.payload;
+    let timeStamp;
+    try {
+      ({ timeStamp } = JSON.parse(await validationRequestDb.get(address)));
+    } catch (err) {
+      if (err.notFound) {
+        const response = h.response({
+          code: 404,
+          msg: "address not foud",
+        });
+        response.code(404);
+        return response;
+      } else {
+        throw err;
+      }
+    }
+
+    if ((Date.now() - timeStamp) / 1000 > VALIDATION_WINDOW_SECONDS) {
+      const response = h.response({
+        code: 400,
+        msg: "validation window expired",
+      });
+      response.code(400);
+      return response;
+    }
+
+    // hex encode story
+    star.story = new Buffer(star.story).toString("hex");
+
     const blockchain = new Blockchain();
-    await blockchain.addBlock(new Block(request.payload.body));
+    await blockchain.addBlock(new Block({ address, star }));
     return await blockchain.getBlock((await blockchain.getBlockHeight()) - 1);
   },
 });
