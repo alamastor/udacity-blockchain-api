@@ -3,6 +3,7 @@
 const Hapi = require("hapi");
 const Joi = require("joi");
 const { Block, Blockchain } = require("./simpleChain");
+const validationRequestDb = require("level")("./validationrequestdata");
 
 // Create a server with a host and port
 const server = Hapi.server({
@@ -57,6 +58,48 @@ server.route({
     const blockchain = new Blockchain();
     await blockchain.addBlock(new Block(request.payload.body));
     return await blockchain.getBlock((await blockchain.getBlockHeight()) - 1);
+  },
+});
+
+// Post block route
+server.route({
+  method: "POST",
+  path: "/requestValidation",
+  options: {
+    payload: { allow: "application/json" },
+    validate: {
+      payload: Joi.object().keys({
+        address: Joi.number(),
+      }),
+    },
+  },
+  handler: async request => {
+    const address = request.payload.address;
+    const validationWindow = 30;
+    let timeStamp;
+    try {
+      timeStamp = await validationRequestDb.get(address);
+      if ((Date.now() - timeStamp) / 1000 > validationWindow) {
+        timeStamp = Date.now();
+      }
+    } catch (err) {
+      if (err.notFound) {
+        timeStamp = Date.now();
+      } else {
+        throw err;
+      }
+    }
+
+    validationRequestDb.put(address, timeStamp);
+
+    return {
+      address: address,
+      requestTimeStamp: timeStamp,
+      message: `${address}:${timeStamp}:starRegistry`,
+      validationWindow: Math.round(
+        validationWindow - (Date.now() - timeStamp) / 1000,
+      ),
+    };
   },
 });
 
