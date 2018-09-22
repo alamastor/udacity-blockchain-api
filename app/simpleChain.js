@@ -149,11 +149,20 @@ class Blockchain {
     const result = [];
     for (let i = 0; i < blockHeight; i++) {
       const block = await this.getBlock(i);
-      if (block.body.address == address) {
+      if (block.body.address === address) {
         result.push(block);
       }
     }
     return result;
+  }
+  async getBlockByBlockHash(blockHash) {
+    const blockHeight = await this.getBlockHeight();
+    for (let i = 0; i < blockHeight; i++) {
+      const block = await this.getBlock(i);
+      if (block.hash === blockHash) {
+        return block;
+      }
+    }
   }
 }
 

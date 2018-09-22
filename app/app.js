@@ -219,7 +219,7 @@ server.route({
 
 server.route({
   method: "GET",
-  path: "/stars/{address}",
+  path: "/stars/address:{address}",
   options: {
     validate: {
       params: {
@@ -229,6 +229,30 @@ server.route({
   },
   handler: async request => {
     return await new Blockchain().getBlocksByAddress(request.params.address);
+  },
+});
+
+server.route({
+  method: "GET",
+  path: "/stars/hash:{hash}",
+  options: {
+    validate: {
+      params: {
+        hash: Joi.string(),
+      },
+    },
+  },
+  handler: async (request, h) => {
+    const block = await new Blockchain().getBlockByBlockHash(
+      request.params.hash,
+    );
+    if (block) {
+      return block;
+    } else {
+      const response = h.response();
+      response.code(404);
+      return response;
+    }
   },
 });
 
