@@ -212,6 +212,7 @@ server.route({
   },
 });
 
+// Get star by address endpoint
 server.route({
   method: "GET",
   path: "/stars/address:{address}",
@@ -235,6 +236,7 @@ server.route({
   },
 });
 
+// Get star by hash endpoint
 server.route({
   method: "GET",
   path: "/stars/hash:{hash}",
