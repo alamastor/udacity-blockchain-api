@@ -4,9 +4,11 @@ const Hapi = require("hapi");
 const Joi = require("joi");
 const bitcoinMsg = require("bitcoinjs-message");
 const { Block, Blockchain } = require("./simpleChain");
-const validationRequestDb = require("level")("./validationrequestdata");
-
-const VALIDATION_WINDOW_SECONDS = 300;
+const {
+  getValidationInfo,
+  requestNewValidation,
+  setValidated,
+} = require("./validationRequest");
 
 // Create a server with a host and port
 const server = Hapi.server({
@@ -71,28 +73,31 @@ server.route({
   },
   handler: async (request, h) => {
     const { address, star } = request.payload;
-    let timeStamp;
-    try {
-      ({ timeStamp } = JSON.parse(await validationRequestDb.get(address)));
-    } catch (err) {
-      if (err.notFound) {
-        const response = h.response({
-          code: 404,
-          msg: "address not foud",
-        });
-        response.code(404);
-        return response;
-      } else {
-        throw err;
-      }
+    const validationInfo = await getValidationInfo(address);
+    if (!validationInfo) {
+      const response = h.response({
+        code: 404,
+        msg: "address not foud",
+      });
+      response.code(404);
+      return response;
     }
 
-    if ((Date.now() - timeStamp) / 1000 > VALIDATION_WINDOW_SECONDS) {
+    if (validationInfo.validationWindow < 0) {
       const response = h.response({
         code: 400,
         msg: "validation window expired",
       });
       response.code(400);
+      return response;
+    }
+
+    if (!validationInfo.validated) {
+      const response = h.response({
+        code: 401,
+        msg: "request not validated",
+      });
+      response.code(401);
       return response;
     }
 
@@ -119,32 +124,13 @@ server.route({
   },
   handler: async request => {
     const address = request.payload.address;
-    let timeStamp;
-    try {
-      ({ timeStamp } = JSON.parse(await validationRequestDb.get(address)));
-      if ((Date.now() - timeStamp) / 1000 > VALIDATION_WINDOW_SECONDS) {
-        timeStamp = Date.now();
-      }
-    } catch (err) {
-      if (err.notFound) {
-        timeStamp = Date.now();
-      } else {
-        throw err;
-      }
-    }
-
-    validationRequestDb.put(
-      address,
-      JSON.stringify({ timeStamp, validated: false }),
-    );
+    const { timeStamp, validationWindow } = await requestNewValidation(address);
 
     return {
       address: address,
       requestTimeStamp: timeStamp,
       message: `${address}:${timeStamp}:starRegistry`,
-      validationWindow: Math.round(
-        VALIDATION_WINDOW_SECONDS - (Date.now() - timeStamp) / 1000,
-      ),
+      validationWindow: validationWindow,
     };
   },
 });
@@ -166,18 +152,26 @@ server.route({
   },
   handler: async (request, h) => {
     const { address, signature } = request.payload;
-    let timeStamp;
-    try {
-      ({ timeStamp } = JSON.parse(await validationRequestDb.get(address)));
-    } catch (err) {
-      if (err.notFound) {
-        const response = h.response();
-        response.code(404);
-        return response;
-      } else {
-        throw err;
-      }
+    const validationInfo = await getValidationInfo(address);
+    if (!validationInfo) {
+      const response = h.response({
+        code: 404,
+        msg: "address not foud",
+      });
+      response.code(404);
+      return response;
     }
+    const { timeStamp, validationWindow } = validationInfo;
+
+    if (validationWindow < 0) {
+      const response = h.response({
+        code: 400,
+        msg: "validation window expired",
+      });
+      response.code(400);
+      return response;
+    }
+
     const message = `${address}:${timeStamp}:starRegistry`;
     let signatureValid;
     try {
@@ -186,19 +180,14 @@ server.route({
       signatureValid = false;
     }
     if (signatureValid) {
-      validationRequestDb.put(
-        address,
-        JSON.stringify({ timeStamp, validated: true }),
-      );
+      setValidated(address);
       return {
         registerStar: true,
         status: {
           address,
           requestTimeStamp: timeStamp,
           message,
-          validationWindow: Math.round(
-            VALIDATION_WINDOW_SECONDS - (Date.now() - timeStamp) / 1000, //
-          ),
+          validationWindow,
         },
       };
     } else {
@@ -208,9 +197,7 @@ server.route({
           address,
           requestTimeStamp: timeStamp,
           message,
-          validationWindow: Math.round(
-            VALIDATION_WINDOW_SECONDS - (Date.now() - timeStamp) / 1000, //
-          ),
+          validationWindow,
         },
       };
     }
