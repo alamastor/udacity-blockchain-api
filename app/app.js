@@ -8,6 +8,7 @@ const {
   getValidationInfo,
   requestNewValidation,
   setValidated,
+  deleteRequest,
 } = require("./validationRequest");
 
 // Create a server with a host and port
@@ -100,6 +101,8 @@ server.route({
       response.code(401);
       return response;
     }
+
+    deleteRequest(address);
 
     // hex encode story
     star.story = new Buffer(star.story).toString("hex");

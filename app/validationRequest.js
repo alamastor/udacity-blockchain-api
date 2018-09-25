@@ -53,4 +53,13 @@ async function setValidated(address) {
   await db.put(address, JSON.stringify(info));
 }
 
-module.exports = { getValidationInfo, requestNewValidation, setValidated };
+async function deleteRequest(address) {
+  await db.del(address);
+}
+
+module.exports = {
+  getValidationInfo,
+  requestNewValidation,
+  setValidated,
+  deleteRequest,
+};
