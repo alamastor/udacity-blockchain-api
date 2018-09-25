@@ -35,7 +35,12 @@ server.route({
       response.code(404);
       return response;
     } else {
-      return await blockchain.getBlock(blockHeight);
+      const block = await blockchain.getBlock(blockHeight);
+      block.body.star.decodedStory = new Buffer(
+        block.body.star.story,
+        "hex",
+      ).toString();
+      return block;
     }
   },
 });
@@ -218,7 +223,15 @@ server.route({
     },
   },
   handler: async request => {
-    return await new Blockchain().getBlocksByAddress(request.params.address);
+    return (await new Blockchain().getBlocksByAddress(
+      request.params.address,
+    )).map(block => {
+      block.body.star.decodedStory = new Buffer(
+        block.body.star.story,
+        "hex",
+      ).toString();
+      return block;
+    });
   },
 });
 
@@ -237,6 +250,10 @@ server.route({
       request.params.hash,
     );
     if (block) {
+      block.body.star.decodedStory = new Buffer(
+        block.body.star.story,
+        "hex",
+      ).toString();
       return block;
     } else {
       const response = h.response();
