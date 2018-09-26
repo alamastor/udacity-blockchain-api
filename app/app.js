@@ -89,15 +89,6 @@ server.route({
       return response;
     }
 
-    if (validationInfo.validationWindow < 0) {
-      const response = h.response({
-        code: 400,
-        msg: "validation window expired",
-      });
-      response.code(400);
-      return response;
-    }
-
     if (!validationInfo.validated) {
       const response = h.response({
         code: 401,
@@ -196,6 +187,7 @@ server.route({
           requestTimeStamp: timeStamp,
           message,
           validationWindow,
+          messageSignature: "valid",
         },
       };
     } else {
@@ -206,6 +198,7 @@ server.route({
           requestTimeStamp: timeStamp,
           message,
           validationWindow,
+          messageSignature: "invalid",
         },
       };
     }
